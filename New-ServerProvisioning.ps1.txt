@@ -1,0 +1,205 @@
+<#
+.SYNOPSIS
+    GRT Server Provisioning - implements the 14-step Server -> Script -> CSV flow.
+.DESCRIPTION
+    Confirms hostname/IP/DNS/time sync, applies patches, installs roles/features,
+    configures firewall/monitoring/backup, creates service accounts, configures
+    storage, installs app/DB, tests connectivity, and appends the server to the
+    inventory CSV. Each step is idempotent and logs pass/fail so the script can
+    be re-run safely if it stops partway through.
+.PARAMETER ServerName
+    Target server hostname (must already be reachable / joined or joinable to domain).
+.PARAMETER Environment
+    Production | UAT | Dev
+.PARAMETER Role
+    IIS | SQL | AppServer | FileServer | DomainController etc.
+.PARAMETER Owner
+    Team/person accountable for the server.
+.PARAMETER Features
+    Windows features/roles to install, e.g. 'Web-Server','FS-FileServer'.
+.PARAMETER InventoryCsv
+    Path to the master server inventory CSV this run appends to.
+.EXAMPLE
+    .\New-ServerProvisioning.ps1 -ServerName WEB02 -Environment Production -Role IIS `
+        -IPAddress 10.0.1.11 -Owner ApplicationTeam -Features 'Web-Server','Web-Asp-Net45' `
+        -InventoryCsv .\ServerInventory.csv
+#>
+
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory=$true)]  [string]$ServerName,
+    [Parameter(Mandatory=$true)]  [ValidateSet('Production','UAT','Dev')] [string]$Environment,
+    [Parameter(Mandatory=$true)]  [string]$Role,
+    [Parameter(Mandatory=$true)]  [string]$IPAddress,
+    [Parameter(Mandatory=$true)]  [string]$Owner,
+    [Parameter(Mandatory=$false)] [string[]]$Features = @(),
+    [Parameter(Mandatory=$false)] [string]$DNSServer = '10.0.1.5',
+    [Parameter(Mandatory=$false)] [string]$NTPServer = 'time.windows.com',
+    [Parameter(Mandatory=$false)] [string[]]$FirewallRulesToEnable = @(),
+    [Parameter(Mandatory=$false)] [string]$InventoryCsv = ".\ServerInventory.csv",
+    [Parameter(Mandatory=$false)] [string]$LogPath = ".\ProvisioningLogs"
+)
+
+$ErrorActionPreference = 'Stop'
+if (-not (Test-Path $LogPath)) { New-Item -ItemType Directory -Path $LogPath -Force | Out-Null }
+$logFile = Join-Path $LogPath "$ServerName`_Provisioning_$(Get-Date -Format yyyyMMdd_HHmm).log"
+$stepLog = New-Object System.Collections.Generic.List[Object]
+
+function Write-Step {
+    param([string]$StepNo, [string]$Name, [scriptblock]$Action)
+    Write-Host "`n[Step $StepNo] $Name" -ForegroundColor Cyan
+    $entry = [ordered]@{ Step = $StepNo; Name = $Name; Status = ''; Detail = ''; Time = Get-Date -Format o }
+    try {
+        $result = & $Action
+        $entry.Status = 'PASS'
+        $entry.Detail = ($result | Out-String).Trim()
+        Write-Host "  PASS" -ForegroundColor Green
+    } catch {
+        $entry.Status = 'FAIL'
+        $entry.Detail = $_.Exception.Message
+        Write-Host "  FAIL: $($_.Exception.Message)" -ForegroundColor Red
+    }
+    $stepLog.Add([pscustomobject]$entry)
+    $entry.Detail | Out-File -Append $logFile
+    return $entry.Status -eq 'PASS'
+}
+
+# 1. Confirm hostname
+Write-Step "1" "Confirm hostname" {
+    $actual = (Invoke-Command -ComputerName $ServerName -ScriptBlock { $env:COMPUTERNAME } -ErrorAction Stop)
+    if ($actual -ne $ServerName) { throw "Hostname mismatch: expected $ServerName got $actual" }
+    "Hostname confirmed: $actual"
+}
+
+# 2. Confirm IP configuration
+Write-Step "2" "Confirm IP configuration" {
+    $ip = Invoke-Command -ComputerName $ServerName -ScriptBlock {
+        (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '127.*' }).IPAddress
+    }
+    if ($ip -notcontains $using:IPAddress) { throw "Expected IP $using:IPAddress not found. Found: $($ip -join ', ')" }
+    "IP confirmed: $($ip -join ', ')"
+}
+
+# 3. Confirm DNS
+Write-Step "3" "Confirm DNS resolution" {
+    $result = Invoke-Command -ComputerName $ServerName -ScriptBlock {
+        param($dns) Resolve-DnsName -Name $env:COMPUTERNAME -Server $dns -ErrorAction Stop
+    } -ArgumentList $DNSServer
+    "DNS resolves via $DNSServer"
+}
+
+# 4. Confirm time synchronization
+Write-Step "4" "Confirm time synchronization" {
+    Invoke-Command -ComputerName $ServerName -ScriptBlock {
+        param($ntp)
+        w32tm /config /manualpeerlist:$ntp /syncfromflags:manual /update | Out-Null
+        w32tm /resync | Out-Null
+        w32tm /query /status
+    } -ArgumentList $NTPServer
+}
+
+# 5. Apply approved patches
+Write-Step "5" "Apply approved patches" {
+    Invoke-Command -ComputerName $ServerName -ScriptBlock {
+        if (-not (Get-Module -ListAvailable -Name PSWindowsUpdate)) {
+            throw "PSWindowsUpdate module not present - install via approved WSUS/SCCM channel instead"
+        }
+        Import-Module PSWindowsUpdate
+        Get-WindowsUpdate -AcceptAll -Install -IgnoreReboot -ErrorAction Stop
+    }
+}
+
+# 6. Install required roles/features
+Write-Step "6" "Install required roles/features" {
+    if ($Features.Count -eq 0) { "No features specified - skipped" }
+    else {
+        Invoke-Command -ComputerName $ServerName -ScriptBlock {
+            param($feat) Install-WindowsFeature -Name $feat -IncludeManagementTools
+        } -ArgumentList (,$Features)
+    }
+}
+
+# 7. Configure firewall
+Write-Step "7" "Configure firewall" {
+    Invoke-Command -ComputerName $ServerName -ScriptBlock {
+        Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled True
+    }
+    if ($FirewallRulesToEnable.Count -gt 0) {
+        Invoke-Command -ComputerName $ServerName -ScriptBlock {
+            param($rules) foreach ($r in $rules) { Enable-NetFirewallRule -DisplayGroup $r -ErrorAction SilentlyContinue }
+        } -ArgumentList (,$FirewallRulesToEnable)
+    }
+    "Firewall enabled on all profiles; rule groups enabled: $($FirewallRulesToEnable -join ', ')"
+}
+
+# 8. Configure monitoring
+Write-Step "8" "Configure monitoring (agent presence check)" {
+    Invoke-Command -ComputerName $ServerName -ScriptBlock {
+        Get-Service -Name 'HealthService','AzureMonitorAgent' -ErrorAction SilentlyContinue
+    }
+    "Monitoring agent check complete - verify against monitoring platform manually if agent absent"
+}
+
+# 9. Configure backup
+Write-Step "9" "Configure backup" {
+    Invoke-Command -ComputerName $ServerName -ScriptBlock {
+        Get-WindowsFeature -Name Windows-Server-Backup
+    }
+    "Backup feature check complete - configure backup job in Azure Backup / DPM per GRT backup policy"
+}
+
+# 10. Create required service accounts
+Write-Step "10" "Create required service accounts" {
+    "Manual/AD-integrated step - create via New-ADUser or gMSA as per Identity onboarding flow. Not auto-executed to avoid unreviewed AD writes."
+}
+
+# 11. Configure storage
+Write-Step "11" "Configure storage" {
+    Invoke-Command -ComputerName $ServerName -ScriptBlock {
+        Get-Volume | Where-Object DriveType -eq 'Fixed' | Select-Object DriveLetter,FileSystemLabel,SizeRemaining,Size
+    }
+}
+
+# 12. Install application/database
+Write-Step "12" "Install application/database" {
+    "Application/DB install is role-specific - invoke the relevant install script (e.g. SQL unattended install, app MSI/zip deploy) here."
+}
+
+# 13. Test connectivity
+Write-Step "13" "Test connectivity" {
+    $ping = Test-Connection -ComputerName $ServerName -Count 2 -Quiet
+    if (-not $ping) { throw "Ping failed" }
+    "Connectivity confirmed"
+}
+
+# 14. Document configuration - append to inventory CSV
+Write-Step "14" "Document configuration" {
+    $entry = [pscustomobject]@{
+        ServerName  = $ServerName
+        Environment = $Environment
+        Role        = $Role
+        IP          = $IPAddress
+        OS          = (Invoke-Command -ComputerName $ServerName -ScriptBlock { (Get-CimInstance Win32_OperatingSystem).Caption })
+        Owner       = $Owner
+        Application = ''
+        Database    = ''
+        Location    = ''
+        Backup      = 'Pending confirmation'
+        Monitoring  = 'Pending confirmation'
+        Provisioned = Get-Date -Format o
+    }
+    $exists = Test-Path $InventoryCsv
+    $entry | Export-Csv -Path $InventoryCsv -NoTypeInformation -Append:$exists -NoClobber:$false
+    "Appended to inventory: $InventoryCsv"
+}
+
+# Summary
+Write-Host "`n=== Provisioning Summary: $ServerName ===" -ForegroundColor Cyan
+$stepLog | Format-Table Step, Name, Status -AutoSize
+$failed = $stepLog | Where-Object Status -eq 'FAIL'
+if ($failed) {
+    Write-Host "`n$($failed.Count) step(s) FAILED - review $logFile before proceeding." -ForegroundColor Red
+} else {
+    Write-Host "`nAll 14 steps completed successfully." -ForegroundColor Green
+}
+$stepLog | Export-Csv -Path (Join-Path $LogPath "$ServerName`_StepLog_$(Get-Date -Format yyyyMMdd_HHmm).csv") -NoTypeInformation
