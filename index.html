@@ -1,0 +1,1568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GRT SysAdmin Operations Console</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
+
+    :root {
+      --bg: #0a0d12;
+      --bg2: #0f1420;
+      --panel: #121826;
+      --line: #1e2836;
+      --blue: #2fb6ff;
+      --blue-dim: #1a6f9c;
+      --orange: #ff6a1f;
+      --orange-dim: #a8420f;
+      --text: #c9d6e3;
+      --text-dim: #5f7387;
+      --ok: #2fd08a;
+      --warn: #ffb020;
+      --crit: #ff3b3b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: radial-gradient(circle at 20% 0%, #0d1420 0%, var(--bg) 55%);
+      color: var(--text);
+      font-family: 'Rajdhani', sans-serif;
+      min-height: 100vh;
+      padding: 28px 20px 60px;
+    }
+
+    .wrap { max-width: 1180px; margin: 0 auto; }
+
+    header {
+      display: flex; justify-content: space-between; align-items: flex-end;
+      border-bottom: 1px solid var(--line); padding-bottom: 18px; margin-bottom: 26px;
+      flex-wrap: wrap; gap: 14px;
+    }
+
+    .brand { display: flex; align-items: baseline; gap: 12px; }
+
+    .brand .g {
+      font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 2.1rem;
+      color: var(--orange); letter-spacing: 1px; text-shadow: 0 0 18px rgba(255, 106, 31, 0.35);
+    }
+
+    .brand .sub {
+      font-family: 'Share Tech Mono', monospace; color: var(--text-dim); font-size: 0.8rem;
+      letter-spacing: 2px; text-transform: uppercase;
+    }
+
+    .title {
+      font-family: 'Orbitron', sans-serif; font-size: 1rem; color: var(--blue);
+      letter-spacing: 3px; text-transform: uppercase;
+    }
+
+    .clock {
+      font-family: 'Share Tech Mono', monospace; color: var(--text-dim); font-size: 0.85rem;
+    }
+
+    .tabs {
+      display: flex; gap: 2px; margin-bottom: 22px; border: 1px solid var(--line);
+      border-radius: 6px; overflow: hidden; width: fit-content;
+    }
+
+    .tab {
+      padding: 10px 20px; font-family: 'Orbitron', sans-serif; font-size: 0.72rem;
+      letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dim);
+      cursor: pointer; background: var(--panel); border-right: 1px solid var(--line);
+      transition: all 0.15s;
+    }
+
+    .tab:last-child { border-right: none; }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: #0a0d12; background: var(--blue); }
+
+    .view { display: none; }
+    .view.active { display: block; }
+
+    .arch-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px;
+    }
+
+    .domain {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+      padding: 16px 18px; cursor: pointer; transition: border-color 0.15s, transform 0.15s;
+      position: relative; overflow: hidden;
+    }
+
+    .domain::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+      background: var(--blue-dim); transition: background 0.15s;
+    }
+
+    .domain:hover { border-color: var(--blue-dim); transform: translateY(-2px); }
+    .domain.open::before { background: var(--orange); }
+
+    .domain h3 {
+      font-family: 'Orbitron', sans-serif; font-size: 0.85rem; letter-spacing: 1.5px;
+      color: var(--text); text-transform: uppercase; display: flex; justify-content: space-between;
+      align-items: center;
+    }
+
+    .domain h3 .arrow {
+      color: var(--text-dim); font-size: 0.7rem; transition: transform 0.15s;
+    }
+
+    .domain.open h3 .arrow { transform: rotate(90deg); color: var(--orange); }
+
+    .domain-items {
+      max-height: 0; overflow: hidden; transition: max-height 0.2s ease;
+      font-family: 'Share Tech Mono', monospace; font-size: 0.78rem; color: var(--text-dim);
+    }
+
+    .domain.open .domain-items { max-height: 400px; margin-top: 10px; }
+    .domain-items div { padding: 4px 0; border-top: 1px dashed var(--line); }
+    .domain-items div:first-child { border-top: none; }
+
+    .flow-section {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+      padding: 20px; margin-bottom: 16px;
+    }
+
+    .flow-section h3 {
+      font-family: 'Orbitron', sans-serif; font-size: 0.85rem; color: var(--blue);
+      letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 14px;
+    }
+
+    .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 0; }
+
+    .flow-step {
+      font-family: 'Share Tech Mono', monospace; font-size: 0.78rem; color: var(--text);
+      background: #0d1420; border: 1px solid var(--line); border-radius: 4px; padding: 7px 12px;
+    }
+
+    .flow-arrow { color: var(--orange-dim); padding: 0 8px; font-size: 0.9rem; }
+
+    .checklist-group {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+      padding: 18px 20px; margin-bottom: 14px;
+    }
+
+    .checklist-group h3 {
+      font-family: 'Orbitron', sans-serif; font-size: 0.8rem; color: var(--orange);
+      letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; display: flex;
+      justify-content: space-between;
+    }
+
+    .checklist-group h3 .count {
+      color: var(--text-dim); font-family: 'Share Tech Mono', monospace; font-size: 0.7rem;
+    }
+
+    .check-item {
+      display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 0.92rem;
+      cursor: pointer; user-select: none;
+    }
+
+    .check-item input {
+      accent-color: var(--blue); width: 16px; height: 16px; cursor: pointer;
+    }
+
+    .check-item.done label { color: var(--text-dim); text-decoration: line-through; }
+    .check-item label { cursor: pointer; flex: 1; }
+
+    .progress-bar {
+      height: 5px; background: #0d1420; border-radius: 3px; overflow: hidden; margin-top: 10px;
+    }
+
+    .progress-fill {
+      height: 100%; background: linear-gradient(90deg, var(--blue), var(--orange));
+      transition: width 0.2s;
+    }
+
+    .reset-btn {
+      font-family: 'Orbitron', sans-serif; font-size: 0.7rem; letter-spacing: 1px;
+      color: var(--text-dim); background: none; border: 1px solid var(--line); border-radius: 4px;
+      padding: 8px 16px; cursor: pointer; margin-top: 6px;
+    }
+
+    .reset-btn:hover { border-color: var(--orange); color: var(--orange); }
+
+    .sev-table {
+      width: 100%; border-collapse: collapse; font-family: 'Share Tech Mono', monospace; font-size: 0.85rem;
+    }
+
+    .sev-table th {
+      text-align: left; padding: 10px 14px; background: var(--bg2); color: var(--text-dim);
+      font-size: 0.7rem; letter-spacing: 1px; text-transform: uppercase;
+    }
+
+    .sev-table td { padding: 10px 14px; border-top: 1px solid var(--line); }
+
+    .sev-badge {
+      display: inline-block; padding: 3px 10px; border-radius: 3px; font-weight: 700; font-size: 0.75rem;
+    }
+
+    .sev1, .sev2 { background: rgba(255, 59, 59, 0.15); color: var(--crit); }
+    .sev3, .sev4 { background: rgba(255, 176, 32, 0.15); color: var(--warn); }
+    .sev5, .sev6, .sev7, .sev8 { background: rgba(47, 208, 138, 0.15); color: var(--ok); }
+
+    footer {
+      text-align: center; color: var(--text-dim); font-family: 'Share Tech Mono', monospace;
+      font-size: 0.72rem; margin-top: 40px; letter-spacing: 1px;
+    }
+
+    .drop-zone {
+      border: 2px dashed var(--line); border-radius: 8px; padding: 36px 20px; text-align: center;
+      cursor: pointer; transition: border-color 0.15s, background 0.15s; margin-bottom: 20px;
+      background: var(--panel);
+    }
+
+    .drop-zone.drag { border-color: var(--blue); background: rgba(47, 182, 255, 0.06); }
+    .drop-zone p { font-family: 'Share Tech Mono', monospace; font-size: 0.85rem; color: var(--text-dim); }
+    .drop-zone .hint { font-size: 0.72rem; margin-top: 6px; color: var(--text-dim); opacity: 0.7; }
+    .file-input { display: none; }
+
+    .attach-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .attach-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px 16px;
+    }
+
+    .attach-info { display: flex; align-items: center; gap: 12px; overflow: hidden; }
+
+    .attach-ext {
+      font-family: 'Orbitron', sans-serif; font-size: 0.62rem; background: var(--blue-dim); color: #fff;
+      padding: 4px 7px; border-radius: 4px; letter-spacing: 1px; flex-shrink: 0;
+    }
+
+    .attach-name { font-size: 0.9rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .attach-meta { font-family: 'Share Tech Mono', monospace; font-size: 0.68rem; color: var(--text-dim); flex-shrink: 0; }
+    .attach-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+    .icon-btn {
+      background: none; border: 1px solid var(--line); border-radius: 4px; color: var(--text-dim);
+      font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; padding: 6px 10px; cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .icon-btn:hover { border-color: var(--blue); color: var(--blue); }
+    .icon-btn.danger:hover { border-color: var(--crit); color: var(--crit); }
+    .empty-state {
+      font-family: 'Share Tech Mono', monospace; color: var(--text-dim); font-size: 0.8rem; text-align: center;
+      padding: 30px;
+    }
+
+    .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .section-head h3 {
+      font-family: 'Orbitron', sans-serif; font-size: 0.85rem; color: var(--blue);
+      letter-spacing: 1.5px; text-transform: uppercase;
+    }
+
+    .add-btn {
+      font-family: 'Orbitron', sans-serif; font-size: 0.68rem; letter-spacing: 1px; color: #0a0d12;
+      background: var(--blue); border: none; border-radius: 4px; padding: 9px 16px; cursor: pointer;
+    }
+
+    .add-btn:hover { background: #4fc4ff; }
+
+    .key-card, .device-card {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px;
+      margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .key-main { flex: 1; min-width: 200px; }
+    .key-name { font-size: 0.95rem; color: var(--text); font-weight: 600; }
+    .key-meta {
+      font-family: 'Share Tech Mono', monospace; font-size: 0.72rem; color: var(--text-dim); margin-top: 4px;
+    }
+
+    .key-value {
+      font-family: 'Share Tech Mono', monospace; font-size: 0.78rem; background: #0d1420; border: 1px solid var(--line);
+      border-radius: 4px; padding: 6px 10px; color: var(--text-dim); margin-top: 6px; display: inline-block;
+      letter-spacing: 1px;
+    }
+
+    .status-pill {
+      font-family: 'Orbitron', sans-serif; font-size: 0.62rem; letter-spacing: 1px; padding: 4px 10px;
+      border-radius: 10px; text-transform: uppercase;
+    }
+
+    .status-ok { background: rgba(47, 208, 138, 0.15); color: var(--ok); }
+    .status-warn { background: rgba(255, 176, 32, 0.15); color: var(--warn); }
+    .status-crit { background: rgba(255, 59, 59, 0.15); color: var(--crit); }
+
+    .modal-backdrop {
+      display: none; position: fixed; inset: 0; background: rgba(5, 8, 12, 0.7); z-index: 50;
+      align-items: center; justify-content: center;
+    }
+
+    .modal-backdrop.show { display: flex; }
+
+    .modal {
+      background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 24px;
+      width: 100%; max-width: 420px;
+    }
+
+    .modal h4 {
+      font-family: 'Orbitron', sans-serif; font-size: 0.85rem; color: var(--blue);
+      letter-spacing: 1px; margin-bottom: 16px; text-transform: uppercase;
+    }
+
+    .modal label { font-size: 0.8rem; color: var(--text-dim); display: block; margin: 12px 0 5px; }
+
+    .modal input, .modal select {
+      width: 100%; background: #0d1420; border: 1px solid var(--line); border-radius: 5px; color: var(--text);
+      padding: 9px 12px; font-family: 'Rajdhani', sans-serif; font-size: 0.9rem;
+    }
+
+    .modal-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+    .btn-cancel {
+      background: none; border: 1px solid var(--line); color: var(--text-dim); border-radius: 5px;
+      padding: 9px 16px; cursor: pointer; font-family: 'Rajdhani', sans-serif;
+    }
+    .btn-save {
+      background: var(--orange); border: none; color: #fff; border-radius: 5px; padding: 9px 16px;
+      cursor: pointer; font-family: 'Rajdhani', sans-serif; font-weight: 600;
+    }
+
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: var(--panel); border: 1px solid var(--blue-dim); color: var(--text);
+      padding: 12px 22px; border-radius: 6px; font-family: 'Share Tech Mono', monospace;
+      font-size: 0.8rem; opacity: 0; transition: all 0.25s; z-index: 60; pointer-events: none;
+    }
+
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ---- Monitoring Dashboard ---- */
+    .monitoring-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px;
+    }
+    .metric-card {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px;
+      text-align: center; position: relative; overflow: hidden;
+    }
+    .metric-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, var(--blue), var(--orange));
+    }
+    .metric-label {
+      font-family: 'Orbitron', sans-serif; font-size: 0.7rem; color: var(--text-dim);
+      letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;
+    }
+    .metric-value {
+      font-family: 'Share Tech Mono', monospace; font-size: 1.8rem; color: var(--blue);
+      font-weight: 600; margin-bottom: 4px;
+    }
+    .metric-unit {
+      font-family: 'Share Tech Mono', monospace; font-size: 0.72rem; color: var(--text-dim);
+    }
+
+    .alert-card {
+      background: var(--panel); border-left: 4px solid var(--warn); border: 1px solid var(--line);
+      border-radius: 6px; padding: 14px 16px; margin-bottom: 10px; display: flex;
+      justify-content: space-between; align-items: flex-start;
+    }
+    .alert-card.critical { border-left-color: var(--crit); }
+    .alert-card.info { border-left-color: var(--blue); }
+    .alert-info { flex: 1; }
+    .alert-title {
+      font-family: 'Orbitron', sans-serif; font-size: 0.8rem; color: var(--text);
+      letter-spacing: 1px; margin-bottom: 4px;
+    }
+    .alert-msg {
+      font-family: 'Share Tech Mono', monospace; font-size: 0.75rem; color: var(--text-dim);
+      line-height: 1.4;
+    }
+    .alert-time {
+      font-family: 'Share Tech Mono', monospace; font-size: 0.7rem; color: var(--text-dim);
+      white-space: nowrap; margin-left: 12px;
+    }
+
+    .db-card {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px;
+      margin-bottom: 12px; display: grid; grid-template-columns: 1fr auto; gap: 16px;
+    }
+    .db-info { }
+    .db-name { font-size: 0.95rem; color: var(--text); font-weight: 600; }
+    .db-meta {
+      font-family: 'Share Tech Mono', monospace; font-size: 0.72rem; color: var(--text-dim);
+      margin-top: 6px; line-height: 1.6;
+    }
+    .db-actions { display: flex; gap: 8px; align-self: flex-start; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <span class="g">GRT</span>
+        <span class="sub">Assist Automations &amp; Security</span>
+      </div>
+      <div class="title">SysAdmin Operations Console</div>
+      <div class="clock" id="clock"></div>
+    </header>
+
+    <div class="toolbar" style="display:flex;justify-content:flex-end;gap:10px;margin:10px 0 18px;flex-wrap:wrap;">
+      <button class="add-btn" id="exportPdfBtn" type="button">Export PDF</button>
+      <button class="reset-btn" id="resetDataBtn" type="button">Reset Data</button>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-view="arch">Architecture</div>
+      <div class="tab" data-view="flows">Process Flows</div>
+      <div class="tab" data-view="dba">DBA Operations</div>
+      <div class="tab" data-view="disaster">Disaster Recovery</div>
+      <div class="tab" data-view="monitoring">Live Monitoring</div>
+      <div class="tab" data-view="checklist">Daily Checklist</div>
+      <div class="tab" data-view="severity">Severity Matrix</div>
+      <div class="tab" data-view="attachments">Attachments</div>
+      <div class="tab" data-view="keys">Access &amp; Keys</div>
+    </div>
+
+    <div class="view active" id="arch">
+      <div class="arch-grid" id="archGrid"></div>
+    </div>
+
+    <div class="view" id="flows"></div>
+
+    <!-- DBA OPERATIONS -->
+    <div class="view" id="dba">
+      <div class="section-head">
+        <h3>Database Operations Dashboard</h3>
+        <button class="add-btn" id="addDbBtn">+ Add Database</button>
+      </div>
+      <div id="dbList"></div>
+
+      <div class="section-head" style="margin-top:30px;">
+        <h3>Active Queries & Blocking</h3>
+      </div>
+      <table class="sev-table">
+        <thead>
+          <tr><th>Database</th><th>Query ID</th><th>Duration</th><th>Status</th><th>Action</th></tr>
+        </thead>
+        <tbody id="queryBody"></tbody>
+      </table>
+
+      <div class="section-head" style="margin-top:30px;">
+        <h3>Backup Schedule</h3>
+        <button class="add-btn" id="addBackupBtn">+ Add Backup Job</button>
+      </div>
+      <div id="backupList"></div>
+
+      <div class="section-head" style="margin-top:30px;">
+        <h3>Database Mirroring Status</h3>
+      </div>
+      <div id="mirrorList"></div>
+    </div>
+
+    <!-- DISASTER RECOVERY -->
+    <div class="view" id="disaster">
+      <div class="flow-section">
+        <h3>DR Procedures & RTO/RPO Targets</h3>
+        <div id="drProcedures"></div>
+      </div>
+
+      <div class="section-head">
+        <h3>Recovery Point History</h3>
+      </div>
+      <table class="sev-table">
+        <thead>
+          <tr><th>Date/Time</th><th>Type</th><th>System</th><th>Status</th><th>Action</th></tr>
+        </thead>
+        <tbody id="recoveryBody"></tbody>
+      </table>
+
+      <div class="section-head" style="margin-top:30px;">
+        <h3>Failover / Failback Plan</h3>
+        <button class="add-btn" id="addFailoverBtn">+ New Failover Entry</button>
+      </div>
+      <div id="failoverList"></div>
+    </div>
+
+    <!-- LIVE MONITORING -->
+    <div class="view" id="monitoring">
+      <div class="section-head">
+        <h3>System Health Dashboard</h3>
+      </div>
+      <div class="monitoring-grid" id="healthMetrics"></div>
+
+      <div class="section-head" style="margin-top:30px;">
+        <h3>Active Alerts &amp; Exceptions</h3>
+      </div>
+      <div id="alertsList"></div>
+
+      <div class="section-head" style="margin-top:30px;">
+        <h3>User Access Audit Log</h3>
+        <button class="add-btn" id="logAccessBtn">+ Log Access Event</button>
+      </div>
+      <table class="sev-table">
+        <thead>
+          <tr><th>Timestamp</th><th>User</th><th>Action</th><th>Resource</th><th>Result</th></tr>
+        </thead>
+        <tbody id="auditBody"></tbody>
+      </table>
+
+      <div class="section-head" style="margin-top:30px;">
+        <h3>Storage &amp; Disk Pairing</h3>
+      </div>
+      <table class="sev-table">
+        <thead>
+          <tr><th>Storage Array</th><th>Primary</th><th>Secondary</th><th>Sync Status</th><th>Last Sync</th></tr>
+        </thead>
+        <tbody id="storageBody"></tbody>
+      </table>
+    </div>
+
+    <div class="view" id="checklist"></div>
+
+    <div class="view" id="severity">
+      <table class="sev-table">
+        <thead>
+          <tr><th>Severity</th><th>Definition</th></tr>
+        </thead>
+        <tbody id="sevBody"></tbody>
+      </table>
+    </div>
+
+    <div class="view" id="attachments">
+      <div class="drop-zone" id="dropZone">
+        <p>Drop files here or click to browse</p>
+        <p class="hint">Stored to your personal console storage — text/JSON preview supported, any file type accepted (max ~4MB recommended)</p>
+        <input type="file" id="fileInput" class="file-input" multiple />
+      </div>
+      <div class="section-head"><h3>Stored Attachments</h3><span class="key-meta" id="attachCount"></span></div>
+      <div class="attach-list" id="attachList"></div>
+    </div>
+
+    <div class="view" id="keys">
+      <div class="section-head">
+        <h3>API Keys &amp; Credentials</h3>
+        <button class="add-btn" id="addKeyBtn">+ Add Key</button>
+      </div>
+      <div id="keyList"></div>
+
+      <div class="section-head" style="margin-top:30px;">
+        <h3>Registered Devices / MFA</h3>
+        <button class="add-btn" id="addDeviceBtn">+ Add Device</button>
+      </div>
+      <div id="deviceList"></div>
+    </div>
+
+    <footer>GRT INFRASTRUCTURE // OPERATIONS CONSOLE // v1.0</footer>
+  </div>
+
+  <div class="modal-backdrop" id="keyModal">
+    <div class="modal">
+      <h4>Add API Key / Credential</h4>
+      <label>Name</label>
+      <input type="text" id="keyNameInput" placeholder="e.g. Azure Storage Connection" />
+      <label>Key / Secret Value</label>
+      <input type="text" id="keyValueInput" placeholder="Paste key value" />
+      <label>Expiry Date (optional)</label>
+      <input type="date" id="keyExpiryInput" />
+      <div class="modal-actions">
+        <button class="btn-cancel" data-close="keyModal">Cancel</button>
+        <button class="btn-save" id="saveKeyBtn">Save Key</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="deviceModal">
+    <div class="modal">
+      <h4>Register Device / MFA Method</h4>
+      <label>Device / Method Name</label>
+      <input type="text" id="deviceNameInput" placeholder="e.g. YubiKey 5C, iPhone Authenticator" />
+      <label>Type</label>
+      <select id="deviceTypeInput">
+        <option>Security Key</option>
+        <option>Authenticator App</option>
+        <option>SMS/Phone</option>
+        <option>Hardware Token</option>
+        <option>Biometric</option>
+      </select>
+      <label>Owner</label>
+      <input type="text" id="deviceOwnerInput" placeholder="e.g. Abhay" />
+      <div class="modal-actions">
+        <button class="btn-cancel" data-close="deviceModal">Cancel</button>
+        <button class="btn-save" id="saveDeviceBtn">Save Device</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DBA Database Modal -->
+  <div class="modal-backdrop" id="dbModal">
+    <div class="modal">
+      <h4>Add Database</h4>
+      <label>Database Name</label>
+      <input type="text" id="dbNameInput" placeholder="e.g. ProductionDB" />
+      <label>Server</label>
+      <input type="text" id="dbServerInput" placeholder="e.g. sql-prod-01.internal" />
+      <label>Type</label>
+      <select id="dbTypeInput">
+        <option>SQL Server</option>
+        <option>PostgreSQL</option>
+        <option>MySQL</option>
+        <option>Oracle</option>
+        <option>MongoDB</option>
+      </select>
+      <label>RTO (minutes)</label>
+      <input type="number" id="dbRtoInput" placeholder="e.g. 15" />
+      <label>RPO (minutes)</label>
+      <input type="number" id="dbRpoInput" placeholder="e.g. 5" />
+      <div class="modal-actions">
+        <button class="btn-cancel" data-close="dbModal">Cancel</button>
+        <button class="btn-save" id="saveDbBtn">Save Database</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Backup Job Modal -->
+  <div class="modal-backdrop" id="backupModal">
+    <div class="modal">
+      <h4>Add Backup Job</h4>
+      <label>Database</label>
+      <input type="text" id="backupDbInput" placeholder="Database name" />
+      <label>Backup Type</label>
+      <select id="backupTypeInput">
+        <option>Full</option>
+        <option>Differential</option>
+        <option>Transaction Log</option>
+        <option>Snapshot</option>
+      </select>
+      <label>Schedule</label>
+      <select id="backupScheduleInput">
+        <option>Daily</option>
+        <option>Weekly</option>
+        <option>Hourly</option>
+        <option>On-Demand</option>
+      </select>
+      <label>Destination</label>
+      <input type="text" id="backupDestInput" placeholder="e.g. /backups/db or S3 bucket" />
+      <div class="modal-actions">
+        <button class="btn-cancel" data-close="backupModal">Cancel</button>
+        <button class="btn-save" id="saveBackupBtn">Save Backup Job</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Failover Modal -->
+  <div class="modal-backdrop" id="failoverModal">
+    <div class="modal">
+      <h4>Create Failover Entry</h4>
+      <label>System Name</label>
+      <input type="text" id="failoverSystemInput" placeholder="e.g. Primary DB Cluster" />
+      <label>Primary Site</label>
+      <input type="text" id="failoverPrimaryInput" placeholder="Location/DataCenter" />
+      <label>Secondary Site</label>
+      <input type="text" id="failoverSecondaryInput" placeholder="Backup location" />
+      <label>Failover Procedure</label>
+      <textarea id="failoverProcInput" placeholder="Steps to execute failover..." style="width:100%;height:80px;padding:8px;background:#0d1420;border:1px solid var(--line);color:var(--text);border-radius:4px;font-family:'Rajdhani',sans-serif;"></textarea>
+      <div class="modal-actions">
+        <button class="btn-cancel" data-close="failoverModal">Cancel</button>
+        <button class="btn-save" id="saveFailoverBtn">Save Failover Plan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Access Log Modal -->
+  <div class="modal-backdrop" id="accessLogModal">
+    <div class="modal">
+      <h4>Log Access Event</h4>
+      <label>Username</label>
+      <input type="text" id="accessUserInput" placeholder="e.g. abhay.admin" />
+      <label>Action</label>
+      <select id="accessActionInput">
+        <option>Login</option>
+        <option>Logout</option>
+        <option>View</option>
+        <option>Modify</option>
+        <option>Delete</option>
+        <option>Export</option>
+      </select>
+      <label>Resource</label>
+      <input type="text" id="accessResourceInput" placeholder="e.g. ProductionDB, Server-01" />
+      <label>Result</label>
+      <select id="accessResultInput">
+        <option>Success</option>
+        <option>Failure</option>
+        <option>Denied</option>
+      </select>
+      <div class="modal-actions">
+        <button class="btn-cancel" data-close="accessLogModal">Cancel</button>
+        <button class="btn-save" id="saveAccessBtn">Log Event</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const domains = {
+      Windows: ['CMD', 'PowerShell', 'Services', 'Processes', 'Event Logs', 'Registry', 'Storage', 'Performance'],
+      Network: ['IP', 'DNS', 'DHCP', 'Ports', 'Routing', 'Firewall', 'SMB'],
+      Identity: ['Active Directory', 'Users', 'Groups', 'GPO', 'Permissions'],
+      Application: ['IIS', 'Certificates', 'Logs', 'Runtime'],
+      Virtualization: ['Hyper-V', 'VMs'],
+      Database: ['MSSQL', 'SQL Agent', 'Backup', 'Restore', 'Blocking', 'Performance'],
+      Cloud: ['Azure VM', 'NSG', 'Storage', 'Monitoring', 'Backup'],
+      Operations: ['Monitoring', 'Incident', 'RCA', 'Change', 'Backup', 'DR']
+    };
+
+    const flows = [
+      { title: 'Server Provisioning (14 Steps)', steps: ['Confirm hostname', 'Confirm IP', 'Confirm DNS', 'Confirm time sync', 'Apply patches', 'Install roles/features', 'Configure firewall', 'Configure monitoring', 'Configure backup', 'Create service accounts', 'Configure storage', 'Install app/database', 'Test connectivity', 'Document'] },
+      { title: 'Identity Onboarding', steps: ['HR Request', 'Manager Approval', 'Create AD Account', 'Assign Groups', 'Mailbox/App Access', 'Computer Assignment', 'VPN/Remote Access', 'MFA', 'Test Login', 'Document'] },
+      { title: 'Application Deployment', steps: ['App files', 'Configuration', 'Dependencies', 'Service/IIS', 'Port', 'Database', 'Authentication', 'App test'] },
+      { title: 'Web Request Path', steps: ['Browser', 'DNS', 'Server', 'Port 80/443', 'Firewall', 'IIS', 'Website', 'App Pool', 'Application', 'Database'] },
+      { title: 'Change Management', steps: ['Request', 'Risk Assessment', 'Approval', 'Backup', 'Implementation', 'Validation', 'Monitoring', 'Close Change'] },
+      { title: 'Disk Full Triage', steps: ['Disk full', 'Which volume?', 'Which directory?', 'File type?', 'Owning app?', 'Log/data/backup/temp?', 'Retention policy?', 'Archive/cleanup', 'Validate'] },
+      { title: 'Scheduled Task Failure', steps: ['Task exists?', 'Enabled?', 'Trigger correct?', 'Run-as valid?', 'Credential valid?', 'Program path valid?', 'Working dir valid?', 'Permissions?', 'Log/output?'] }
+    ];
+
+    const checklists = {
+      Morning: ['Check monitoring dashboard', 'Check critical alerts', 'Check server availability', 'Check CPU/RAM', 'Check disk', 'Check critical services', 'Check backups', 'Check SQL jobs', 'Check certificates', 'Review overnight incidents'],
+      'During Day': ['Process tickets', 'User access', 'Application issues', 'Network issues', 'Server changes', 'Database issues', 'Security alerts', 'Document changes'],
+      'End of Day': ['Verify critical services', 'Verify backups', 'Review unresolved incidents', 'Update tickets', 'Document changes', 'Handover']
+    };
+
+    const severities = [
+      ['SEV1', 'Production completely unavailable'],
+      ['SEV2', 'Major business outage'],
+      ['SEV3', 'Major functionality unavailable'],
+      ['SEV4', 'Multiple users affected'],
+      ['SEV5', 'Limited functionality'],
+      ['SEV6', 'Individual/team impact'],
+      ['SEV7', 'Information / Request'],
+      ['SEV8', 'Minor issue']
+    ];
+
+    const STORAGE_KEY = 'grt-admin-console-state';
+
+    const defaultState = {
+      checkState: {},
+      keys: [
+        { name: 'Azure Storage Connection', value: 'DefaultAzureStorageKey***', expiry: '2026-10-15' },
+        { name: 'SMTP Relay Secret', value: '***********', expiry: '' }
+      ],
+      devices: [
+        { name: 'YubiKey 5C', type: 'Security Key', owner: 'Abhay', status: 'ok' },
+        { name: 'iPhone Authenticator', type: 'Authenticator App', owner: 'Operations', status: 'warn' }
+      ],
+      attachments: [],
+      databases: [
+        { name: 'ProductionDB', server: 'sql-prod-01.internal', type: 'SQL Server', rto: 15, rpo: 5, status: 'ok', size: '245 GB' },
+        { name: 'ReportingDB', server: 'sql-prod-02.internal', type: 'SQL Server', rto: 60, rpo: 30, status: 'ok', size: '89 GB' }
+      ],
+      backupJobs: [
+        { db: 'ProductionDB', type: 'Full', schedule: 'Daily', time: '02:00 AM', destination: 'S3://backups/prod', lastRun: '2026-08-16 02:15 AM', status: 'ok' },
+        { db: 'ProductionDB', type: 'Transaction Log', schedule: 'Hourly', time: 'Every hour', destination: '/backups/prod-tlog', lastRun: '2026-08-16 15:00 AM', status: 'ok' }
+      ],
+      mirrors: [
+        { primary: 'ProductionDB', secondary: 'ProductionDB-DR', status: 'Synchronized', lastSync: '2026-08-16 15:45:32' },
+        { primary: 'ReportingDB', secondary: 'ReportingDB-Standby', status: 'Synchronizing', lastSync: '2026-08-16 15:44:18' }
+      ],
+      queries: [
+        { db: 'ProductionDB', id: '0x0540D2D8', duration: '2m 34s', status: 'Running', blocker: 'No' },
+        { db: 'ProductionDB', id: '0x054A2D1C', duration: '45s', status: 'Waiting', blocker: 'Yes' }
+      ],
+      drProcedures: [
+        { system: 'Production Database Cluster', rto: '15 min', rpo: '5 min', procedure: 'Automatic failover via cluster quorum; manual validation required' },
+        { system: 'Application Server Pool', rto: '5 min', rpo: '0 min', procedure: 'DNS failover + load balancer repoint' },
+        { system: 'File Server', rto: '30 min', rpo: '15 min', procedure: 'DFSR replication + manual mount at DR site' }
+      ],
+      recoveryPoints: [
+        { datetime: '2026-08-16 14:00:00', type: 'Full Backup', system: 'ProductionDB', status: 'ok', recovery: 'Tested' },
+        { datetime: '2026-08-16 13:00:00', type: 'Transaction Log', system: 'ProductionDB', status: 'ok', recovery: 'Ready' }
+      ],
+      failovers: [
+        { system: 'Production DB Cluster', primary: 'DataCenter-A', secondary: 'DataCenter-B', status: 'Active', lastTest: '2026-08-01' }
+      ],
+      alerts: [
+        { title: 'High CPU on SQL-PROD-01', msg: 'CPU usage 87% for 10+ minutes', time: '15:42', severity: 'warn' },
+        { title: 'Backup Delayed', msg: 'ProductionDB full backup running 1h behind schedule', time: '15:35', severity: 'critical' },
+        { title: 'Replication Lag Detected', msg: 'ProductionDB-DR mirror lag: 45 seconds', time: '15:28', severity: 'warn' },
+        { title: 'Disk Space Alert', msg: 'SAN-01 array at 78% capacity', time: '15:20', severity: 'info' }
+      ],
+      healthMetrics: [
+        { label: 'Database Health', value: '98', unit: '%' },
+        { label: 'Replication Lag', value: '0.8', unit: 'sec' },
+        { label: 'Backup Success', value: '100', unit: '%' },
+        { label: 'Storage Used', value: '67', unit: '%' },
+        { label: 'Connection Pool', value: '245', unit: 'active' },
+        { label: 'Query Wait Time', value: '2.3', unit: 'ms' }
+      ],
+      auditLog: [
+        { timestamp: '2026-08-16 15:45:12', user: 'abhay.admin', action: 'Login', resource: 'prod-db-01', result: 'Success' },
+        { timestamp: '2026-08-16 15:30:22', user: 'srini.dba', action: 'Modify', resource: 'ProductionDB', result: 'Success' },
+        { timestamp: '2026-08-16 15:15:45', user: 'unknown.user', action: 'Login', resource: 'prod-db-01', result: 'Denied' }
+      ],
+      storage: [
+        { array: 'SAN-01', primary: '500 GB / 750 GB', secondary: '487 GB / 750 GB', sync: 'Synchronized', lastSync: '2026-08-16 15:45:30' },
+        { array: 'SAN-02', primary: '320 GB / 500 GB', secondary: '318 GB / 500 GB', sync: 'Synchronized', lastSync: '2026-08-16 15:45:15' }
+      ]
+    };
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return structuredClone(defaultState);
+        const parsed = JSON.parse(raw);
+        return { ...structuredClone(defaultState), ...parsed };
+      } catch (error) {
+        console.warn('State failed to load, using defaults:', error);
+        return structuredClone(defaultState);
+      }
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (error) {
+        console.warn('State failed to save:', error);
+      }
+    }
+
+    const state = loadState();
+
+    const archGrid = document.getElementById('archGrid');
+    Object.entries(domains).forEach(([name, items]) => {
+      const el = document.createElement('div');
+      el.className = 'domain';
+      el.innerHTML = `
+        <h3>${name}<span class="arrow">▶</span></h3>
+        <div class="domain-items">${items.map(item => `<div>${item}</div>`).join('')}</div>
+      `;
+      el.addEventListener('click', () => el.classList.toggle('open'));
+      archGrid.appendChild(el);
+    });
+
+    const flowsView = document.getElementById('flows');
+    flows.forEach(flow => {
+      const sec = document.createElement('div');
+      sec.className = 'flow-section';
+      sec.innerHTML = `
+        <h3>${flow.title}</h3>
+        <div class="flow">
+          ${flow.steps.map((step, index) => `
+            <span class="flow-step">${step}</span>
+            ${index < flow.steps.length - 1 ? '<span class="flow-arrow">→</span>' : ''}
+          `).join('')}
+        </div>
+      `;
+      flowsView.appendChild(sec);
+    });
+
+    function renderChecklist() {
+      const checklistView = document.getElementById('checklist');
+      checklistView.innerHTML = '';
+
+      Object.entries(checklists).forEach(([group, items]) => {
+        const groupEl = document.createElement('div');
+        groupEl.className = 'checklist-group';
+        const doneCount = items.filter(item => state.checkState[`${group}:${item}`]).length;
+
+        groupEl.innerHTML = `
+          <h3>${group} <span class="count">${doneCount}/${items.length}</span></h3>
+          ${items.map(item => {
+            const id = `${group}:${item}`;
+            const done = Boolean(state.checkState[id]);
+            return `
+              <div class="check-item ${done ? 'done' : ''}">
+                <input type="checkbox" data-id="${id}" ${done ? 'checked' : ''} />
+                <label>${item}</label>
+              </div>
+            `;
+          }).join('')}
+          <div class="progress-bar"><div class="progress-fill" style="width:${((doneCount / items.length) * 100) || 0}%"></div></div>
+        `;
+
+        checklistView.appendChild(groupEl);
+      });
+
+      const resetBtn = document.createElement('button');
+      resetBtn.className = 'reset-btn';
+      resetBtn.textContent = 'Reset All Checklists';
+      resetBtn.onclick = () => {
+        state.checkState = {};
+        saveState();
+        renderChecklist();
+      };
+      checklistView.appendChild(resetBtn);
+
+      checklistView.querySelectorAll('input[type=checkbox]').forEach(cb => {
+        cb.addEventListener('change', e => {
+          state.checkState[e.target.dataset.id] = e.target.checked;
+          saveState();
+          renderChecklist();
+        });
+      });
+    }
+
+    renderChecklist();
+
+    const sevBody = document.getElementById('sevBody');
+    severities.forEach(([level, definition]) => {
+      const row = document.createElement('tr');
+      const sevClass = `sev${level.replace('SEV', '')}`;
+      row.innerHTML = `
+        <td><span class="sev-badge ${sevClass}">${level}</span></td>
+        <td>${definition}</td>
+      `;
+      sevBody.appendChild(row);
+    });
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clock').textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
+        document.querySelectorAll('.view').forEach(view => view.classList.toggle('active', view.id === tab.dataset.view));
+      });
+    });
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(showToast.timeoutId);
+      showToast.timeoutId = setTimeout(() => toast.classList.remove('show'), 1800);
+    }
+
+    function renderAttachments() {
+      const attachList = document.getElementById('attachList');
+      const counter = document.getElementById('attachCount');
+      counter.textContent = `${state.attachments.length} file${state.attachments.length === 1 ? '' : 's'}`;
+
+      if (!state.attachments.length) {
+        attachList.innerHTML = '<div class="empty-state">No attachments saved yet.</div>';
+        return;
+      }
+
+      attachList.innerHTML = state.attachments.map(file => {
+        const ext = file.name.split('.').pop().toUpperCase() || 'FILE';
+        const preview = file.preview ? `<button class="icon-btn" data-action="preview" data-name="${file.name}">Preview</button>` : '';
+        return `
+          <div class="attach-item">
+            <div class="attach-info">
+              <div class="attach-ext">${ext}</div>
+              <div>
+                <div class="attach-name">${file.name}</div>
+                <div class="attach-meta">${file.sizeLabel}</div>
+              </div>
+            </div>
+            <div class="attach-actions">
+              ${preview}
+              <button class="icon-btn danger" data-action="remove" data-name="${file.name}">Remove</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      attachList.querySelectorAll('[data-action="remove"]').forEach(button => {
+        button.addEventListener('click', () => {
+          const name = button.dataset.name;
+          state.attachments = state.attachments.filter(file => file.name !== name);
+          saveState();
+          renderAttachments();
+          showToast('Attachment removed');
+        });
+      });
+
+      attachList.querySelectorAll('[data-action="preview"]').forEach(button => {
+        button.addEventListener('click', () => {
+          const name = button.dataset.name;
+          const file = state.attachments.find(item => item.name === name);
+          if (!file || !file.preview) return;
+
+          const win = window.open('', '_blank', 'width=800,height=600');
+          if (win) {
+            win.document.write(`<!DOCTYPE html><html><head><title>${file.name}</title><style>body{font-family:monospace;padding:20px;background:#0b1020;color:#dfe9f5;white-space:pre-wrap;}</style></head><body>${escapeHtml(file.preview)}</body></html>`);
+            win.document.close();
+          }
+        });
+      });
+    }
+
+    function escapeHtml(value) {
+      return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function handleFileSelection(fileList) {
+      Array.from(fileList).forEach(file => {
+        const entry = {
+          name: file.name,
+          sizeLabel: formatBytes(file.size),
+          preview: null
+        };
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          const text = String(reader.result || '');
+          const isTextLike = file.type.startsWith('text/') || /\.(json|txt|log|csv|md|yaml|yml|xml)$/i.test(file.name);
+          entry.preview = isTextLike ? text.slice(0, 8000) : null;
+          state.attachments.push(entry);
+          saveState();
+          renderAttachments();
+          showToast(`Added ${file.name}`);
+        };
+        reader.onerror = () => {
+          state.attachments.push(entry);
+          saveState();
+          renderAttachments();
+          showToast(`Added ${file.name}`);
+        };
+
+        if (file.type.startsWith('text/') || /\.(json|txt|log|csv|md|yaml|yml|xml)$/i.test(file.name)) {
+          reader.readAsText(file);
+        } else {
+          reader.onerror = null;
+          state.attachments.push(entry);
+          saveState();
+          renderAttachments();
+          showToast(`Added ${file.name}`);
+        }
+      });
+    }
+
+    function formatBytes(bytes) {
+      if (!bytes) return '0 B';
+      const units = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+      const value = bytes / Math.pow(1024, i);
+      return `${value.toFixed(value >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
+    }
+
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', event => {
+      event.preventDefault();
+      dropZone.classList.add('drag');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+    dropZone.addEventListener('drop', event => {
+      event.preventDefault();
+      dropZone.classList.remove('drag');
+      handleFileSelection(event.dataTransfer.files);
+    });
+    fileInput.addEventListener('change', event => handleFileSelection(event.target.files));
+
+    renderAttachments();
+
+    const keyModal = document.getElementById('keyModal');
+    const deviceModal = document.getElementById('deviceModal');
+
+    function openModal(modalId) {
+      document.getElementById(modalId).classList.add('show');
+    }
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.remove('show');
+    }
+
+    document.getElementById('addKeyBtn').addEventListener('click', () => openModal('keyModal'));
+    document.getElementById('addDeviceBtn').addEventListener('click', () => openModal('deviceModal'));
+    document.querySelectorAll('[data-close]').forEach(button => {
+      button.addEventListener('click', () => closeModal(button.dataset.close));
+    });
+
+    function renderKeys() {
+      const keyList = document.getElementById('keyList');
+      if (!state.keys.length) {
+        keyList.innerHTML = '<div class="empty-state">No credentials saved.</div>';
+        return;
+      }
+
+      keyList.innerHTML = state.keys.map(key => `
+        <div class="key-card">
+          <div class="key-main">
+            <div class="key-name">${key.name}</div>
+            <div class="key-meta">${key.expiry ? `Expires: ${key.expiry}` : 'No expiry set'}</div>
+            <div class="key-value">${key.value}</div>
+          </div>
+          <button class="icon-btn danger" data-remove-key="${key.name}">Remove</button>
+        </div>
+      `).join('');
+
+      keyList.querySelectorAll('[data-remove-key]').forEach(button => {
+        button.addEventListener('click', () => {
+          state.keys = state.keys.filter(key => key.name !== button.dataset.removeKey);
+          saveState();
+          renderKeys();
+          showToast('Key removed');
+        });
+      });
+    }
+
+    function renderDevices() {
+      const deviceList = document.getElementById('deviceList');
+      if (!state.devices.length) {
+        deviceList.innerHTML = '<div class="empty-state">No devices registered.</div>';
+        return;
+      }
+
+      deviceList.innerHTML = state.devices.map(device => {
+        const statusClass = device.status === 'ok' ? 'status-ok' : device.status === 'warn' ? 'status-warn' : 'status-crit';
+        const statusText = device.status === 'ok' ? 'Active' : device.status === 'warn' ? 'Review' : 'Critical';
+        return `
+          <div class="device-card">
+            <div class="key-main">
+              <div class="key-name">${device.name}</div>
+              <div class="key-meta">${device.type} • Owner: ${device.owner}</div>
+            </div>
+            <span class="status-pill ${statusClass}">${statusText}</span>
+            <button class="icon-btn danger" data-remove-device="${device.name}">Remove</button>
+          </div>
+        `;
+      }).join('');
+
+      deviceList.querySelectorAll('[data-remove-device]').forEach(button => {
+        button.addEventListener('click', () => {
+          state.devices = state.devices.filter(device => device.name !== button.dataset.removeDevice);
+          saveState();
+          renderDevices();
+          showToast('Device removed');
+        });
+      });
+    }
+
+    document.getElementById('saveKeyBtn').addEventListener('click', () => {
+      const name = document.getElementById('keyNameInput').value.trim();
+      const value = document.getElementById('keyValueInput').value.trim();
+      const expiry = document.getElementById('keyExpiryInput').value;
+
+      if (!name || !value) {
+        showToast('Name and value are required');
+        return;
+      }
+
+      state.keys.push({ name, value, expiry });
+      saveState();
+      renderKeys();
+      keyModal.classList.remove('show');
+      document.getElementById('keyNameInput').value = '';
+      document.getElementById('keyValueInput').value = '';
+      document.getElementById('keyExpiryInput').value = '';
+      showToast('Key added');
+    });
+
+    document.getElementById('saveDeviceBtn').addEventListener('click', () => {
+      const name = document.getElementById('deviceNameInput').value.trim();
+      const type = document.getElementById('deviceTypeInput').value;
+      const owner = document.getElementById('deviceOwnerInput').value.trim();
+
+      if (!name || !owner) {
+        showToast('Device name and owner are required');
+        return;
+      }
+
+      state.devices.push({ name, type, owner, status: 'ok' });
+      saveState();
+      renderDevices();
+      deviceModal.classList.remove('show');
+      document.getElementById('deviceNameInput').value = '';
+      document.getElementById('deviceOwnerInput').value = '';
+      showToast('Device registered');
+    });
+
+    renderKeys();
+    renderDevices();
+
+    // ================== DBA OPERATIONS ==================
+    function renderDatabases() {
+      const dbList = document.getElementById('dbList');
+      if (!state.databases.length) {
+        dbList.innerHTML = '<div class="empty-state">No databases configured.</div>';
+        return;
+      }
+
+      dbList.innerHTML = state.databases.map(db => {
+        const statusClass = db.status === 'ok' ? 'status-ok' : db.status === 'warn' ? 'status-warn' : 'status-crit';
+        return `
+          <div class="db-card">
+            <div class="db-info">
+              <div class="db-name">${db.name}</div>
+              <div class="db-meta">
+                Server: ${db.server}<br/>
+                Type: ${db.type}<br/>
+                Size: ${db.size} | RTO: ${db.rto}m | RPO: ${db.rpo}m
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+              <span class="status-pill ${statusClass}">${db.status === 'ok' ? 'Healthy' : 'Check'}</span>
+              <button class="icon-btn danger" data-remove-db="${db.name}">Remove</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      dbList.querySelectorAll('[data-remove-db]').forEach(button => {
+        button.addEventListener('click', () => {
+          state.databases = state.databases.filter(db => db.name !== button.dataset.removeDb);
+          saveState();
+          renderDatabases();
+          showToast('Database removed');
+        });
+      });
+    }
+
+    function renderBackups() {
+      const backupList = document.getElementById('backupList');
+      if (!state.backupJobs.length) {
+        backupList.innerHTML = '<div class="empty-state">No backup jobs configured.</div>';
+        return;
+      }
+
+      backupList.innerHTML = state.backupJobs.map(job => {
+        const statusClass = job.status === 'ok' ? 'status-ok' : 'status-warn';
+        return `
+          <div class="db-card">
+            <div class="db-info">
+              <div class="db-name">${job.db} - ${job.type}</div>
+              <div class="db-meta">
+                Schedule: ${job.schedule} @ ${job.time}<br/>
+                Destination: ${job.destination}<br/>
+                Last Run: ${job.lastRun}
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+              <span class="status-pill ${statusClass}">Success</span>
+              <button class="icon-btn danger" data-remove-backup="${job.db}-${job.type}">Remove</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      backupList.querySelectorAll('[data-remove-backup]').forEach(button => {
+        button.addEventListener('click', () => {
+          const [db, type] = button.dataset.removeBackup.split('-');
+          state.backupJobs = state.backupJobs.filter(job => !(job.db === db && job.type === type));
+          saveState();
+          renderBackups();
+          showToast('Backup job removed');
+        });
+      });
+    }
+
+    function renderMirrors() {
+      const mirrorList = document.getElementById('mirrorList');
+      const html = state.mirrors.map(mirror => {
+        const syncClass = mirror.status === 'Synchronized' ? 'status-ok' : 'status-warn';
+        return `
+          <div class="db-card">
+            <div class="db-info">
+              <div class="db-name">${mirror.primary} ⇄ ${mirror.secondary}</div>
+              <div class="db-meta">Status: ${mirror.status}<br/>Last Sync: ${mirror.lastSync}</div>
+            </div>
+            <span class="status-pill ${syncClass}">${mirror.status}</span>
+          </div>
+        `;
+      }).join('');
+      mirrorList.innerHTML = html || '<div class="empty-state">No mirrors configured.</div>';
+    }
+
+    function renderQueries() {
+      const queryBody = document.getElementById('queryBody');
+      queryBody.innerHTML = state.queries.map(q => {
+        const statusBadge = q.blocker === 'Yes' ? '<span class="sev-badge sev2">BLOCKED</span>' : '<span class="sev-badge sev5">Running</span>';
+        return `
+          <tr>
+            <td>${q.db}</td>
+            <td><code style="font-size:0.7rem;">${q.id}</code></td>
+            <td>${q.duration}</td>
+            <td>${statusBadge}</td>
+            <td><button class="icon-btn" onclick="showToast('Kill query ${q.id}')">Kill</button></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // ================== DISASTER RECOVERY ==================
+    function renderDRProcedures() {
+      const drProcedures = document.getElementById('drProcedures');
+      drProcedures.innerHTML = state.drProcedures.map(proc => `
+        <div class="flow-section" style="margin-bottom:14px;">
+          <h3>${proc.system}</h3>
+          <div class="flow">
+            <span class="flow-step">RTO: ${proc.rto}</span>
+            <span class="flow-arrow">|</span>
+            <span class="flow-step">RPO: ${proc.rpo}</span>
+          </div>
+          <div style="margin-top:10px;font-family:'Share Tech Mono',monospace;font-size:0.8rem;color:var(--text-dim);line-height:1.6;">
+            ${proc.procedure}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderRecoveryPoints() {
+      const recoveryBody = document.getElementById('recoveryBody');
+      recoveryBody.innerHTML = state.recoveryPoints.map(rp => {
+        const badgeClass = rp.status === 'ok' ? 'sev5' : 'sev3';
+        return `
+          <tr>
+            <td>${rp.datetime}</td>
+            <td>${rp.type}</td>
+            <td>${rp.system}</td>
+            <td><span class="sev-badge ${badgeClass}">${rp.status.toUpperCase()}</span></td>
+            <td><button class="icon-btn" onclick="showToast('Restore from ${rp.datetime}')">Restore</button></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderFailovers() {
+      const failoverList = document.getElementById('failoverList');
+      if (!state.failovers.length) {
+        failoverList.innerHTML = '<div class="empty-state">No failover plans configured.</div>';
+        return;
+      }
+
+      failoverList.innerHTML = state.failovers.map(fo => `
+        <div class="db-card">
+          <div class="db-info">
+            <div class="db-name">${fo.system}</div>
+            <div class="db-meta">${fo.primary} → ${fo.secondary}<br/>Status: ${fo.status} | Last DR Test: ${fo.lastTest}</div>
+          </div>
+          <button class="add-btn" onclick="showToast('Initiating failover simulation...')">Test Failover</button>
+        </div>
+      `).join('');
+    }
+
+    // ================== LIVE MONITORING ==================
+    function renderHealthMetrics() {
+      const healthMetrics = document.getElementById('healthMetrics');
+      healthMetrics.innerHTML = state.healthMetrics.map(m => `
+        <div class="metric-card">
+          <div class="metric-label">${m.label}</div>
+          <div class="metric-value">${m.value}</div>
+          <div class="metric-unit">${m.unit}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderAlerts() {
+      const alertsList = document.getElementById('alertsList');
+      if (!state.alerts.length) {
+        alertsList.innerHTML = '<div class="empty-state">No active alerts.</div>';
+        return;
+      }
+
+      alertsList.innerHTML = state.alerts.map(alert => {
+        const alertClass = alert.severity === 'critical' ? 'critical' : alert.severity === 'warn' ? '' : 'info';
+        return `
+          <div class="alert-card ${alertClass}">
+            <div class="alert-info">
+              <div class="alert-title">${alert.title}</div>
+              <div class="alert-msg">${alert.msg}</div>
+            </div>
+            <div class="alert-time">${alert.time}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderAuditLog() {
+      const auditBody = document.getElementById('auditBody');
+      auditBody.innerHTML = state.auditLog.map(log => {
+        const resultBadge = log.result === 'Success' ? '<span class="sev-badge sev5">Success</span>' :
+                           log.result === 'Denied' ? '<span class="sev-badge sev2">Denied</span>' : 
+                           '<span class="sev-badge sev3">Failure</span>';
+        return `
+          <tr>
+            <td>${log.timestamp}</td>
+            <td>${log.user}</td>
+            <td>${log.action}</td>
+            <td>${log.resource}</td>
+            <td>${resultBadge}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderStorage() {
+      const storageBody = document.getElementById('storageBody');
+      storageBody.innerHTML = state.storage.map(st => {
+        const syncBadge = st.sync === 'Synchronized' ? '<span class="sev-badge sev5">Synced</span>' : '<span class="sev-badge sev3">Syncing</span>';
+        return `
+          <tr>
+            <td>${st.array}</td>
+            <td>${st.primary}</td>
+            <td>${st.secondary}</td>
+            <td>${syncBadge}</td>
+            <td>${st.lastSync}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // ================== INITIALIZATION ==================
+    renderDatabases();
+    renderBackups();
+    renderMirrors();
+    renderQueries();
+    renderDRProcedures();
+    renderRecoveryPoints();
+    renderFailovers();
+    renderHealthMetrics();
+    renderAlerts();
+    renderAuditLog();
+    renderStorage();
+
+    // ================== EVENT HANDLERS ==================
+    document.getElementById('addDbBtn').addEventListener('click', () => openModal('dbModal'));
+    document.getElementById('addBackupBtn').addEventListener('click', () => openModal('backupModal'));
+    document.getElementById('addFailoverBtn').addEventListener('click', () => openModal('failoverModal'));
+    document.getElementById('logAccessBtn').addEventListener('click', () => openModal('accessLogModal'));
+
+    document.getElementById('saveDbBtn').addEventListener('click', () => {
+      const name = document.getElementById('dbNameInput').value.trim();
+      const server = document.getElementById('dbServerInput').value.trim();
+      const type = document.getElementById('dbTypeInput').value;
+      const rto = parseInt(document.getElementById('dbRtoInput').value) || 0;
+      const rpo = parseInt(document.getElementById('dbRpoInput').value) || 0;
+
+      if (!name || !server) {
+        showToast('Database name and server are required');
+        return;
+      }
+
+      state.databases.push({ name, server, type, rto, rpo, status: 'ok', size: '0 GB' });
+      saveState();
+      renderDatabases();
+      closeModal('dbModal');
+      document.getElementById('dbNameInput').value = '';
+      document.getElementById('dbServerInput').value = '';
+      document.getElementById('dbRtoInput').value = '';
+      document.getElementById('dbRpoInput').value = '';
+      showToast('Database added');
+    });
+
+    document.getElementById('saveBackupBtn').addEventListener('click', () => {
+      const db = document.getElementById('backupDbInput').value.trim();
+      const type = document.getElementById('backupTypeInput').value;
+      const schedule = document.getElementById('backupScheduleInput').value;
+      const destination = document.getElementById('backupDestInput').value.trim();
+
+      if (!db || !destination) {
+        showToast('Database and destination are required');
+        return;
+      }
+
+      state.backupJobs.push({ db, type, schedule, time: 'On Schedule', destination, lastRun: 'Pending', status: 'ok' });
+      saveState();
+      renderBackups();
+      closeModal('backupModal');
+      document.getElementById('backupDbInput').value = '';
+      document.getElementById('backupDestInput').value = '';
+      showToast('Backup job added');
+    });
+
+    document.getElementById('saveFailoverBtn').addEventListener('click', () => {
+      const system = document.getElementById('failoverSystemInput').value.trim();
+      const primary = document.getElementById('failoverPrimaryInput').value.trim();
+      const secondary = document.getElementById('failoverSecondaryInput').value.trim();
+
+      if (!system || !primary || !secondary) {
+        showToast('All failover fields are required');
+        return;
+      }
+
+      state.failovers.push({ system, primary, secondary, status: 'Standby', lastTest: 'Never' });
+      saveState();
+      renderFailovers();
+      closeModal('failoverModal');
+      document.getElementById('failoverSystemInput').value = '';
+      document.getElementById('failoverPrimaryInput').value = '';
+      document.getElementById('failoverSecondaryInput').value = '';
+      document.getElementById('failoverProcInput').value = '';
+      showToast('Failover plan created');
+    });
+
+    document.getElementById('saveAccessBtn').addEventListener('click', () => {
+      const user = document.getElementById('accessUserInput').value.trim();
+      const action = document.getElementById('accessActionInput').value;
+      const resource = document.getElementById('accessResourceInput').value.trim();
+      const result = document.getElementById('accessResultInput').value;
+
+      if (!user || !resource) {
+        showToast('User and resource are required');
+        return;
+      }
+
+      const now = new Date();
+      const timestamp = now.toLocaleString().replace(',', '');
+      state.auditLog.unshift({ timestamp, user, action, resource, result });
+      if (state.auditLog.length > 100) state.auditLog.pop();
+      saveState();
+      renderAuditLog();
+      closeModal('accessLogModal');
+      document.getElementById('accessUserInput').value = '';
+      document.getElementById('accessResourceInput').value = '';
+      showToast('Access event logged');
+    });
+
+    document.getElementById('exportPdfBtn').addEventListener('click', () => {
+      const doc = window.open('', '_blank', 'width=1200,height=900');
+      if (!doc) {
+        showToast('Popup blocked — allow popups for export');
+        return;
+      }
+
+      const summary = JSON.stringify({
+        exportedAt: new Date().toISOString(),
+        databases: state.databases,
+        backups: state.backupJobs,
+        alerts: state.alerts,
+        auditLog: state.auditLog,
+        keys: state.keys,
+        devices: state.devices
+      }, null, 2);
+
+      const html = `<!DOCTYPE html><html><head><title>GRT Ops Export</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#111;background:#fff;}pre{white-space:pre-wrap;font-size:12px;line-height:1.5;}</style></head><body><h2>GRT SysAdmin Operations Console Export</h2><pre>${escapeHtml(summary)}</pre></body></html>`;
+      doc.document.write(html);
+      doc.document.close();
+      showToast('Export window opened');
+    });
+
+    document.getElementById('resetDataBtn').addEventListener('click', () => {
+      if (!confirm('Reset all console data to default sample values?')) return;
+      const resetState = structuredClone(defaultState);
+      Object.assign(state, resetState);
+      saveState();
+      renderChecklist();
+      renderDatabases();
+      renderBackups();
+      renderMirrors();
+      renderQueries();
+      renderDRProcedures();
+      renderRecoveryPoints();
+      renderFailovers();
+      renderHealthMetrics();
+      renderAlerts();
+      renderAuditLog();
+      renderStorage();
+      renderKeys();
+      renderDevices();
+      renderAttachments();
+      showToast('Console data reset');
+    });
+
+    // Auto-refresh monitoring every 5 seconds
+    setInterval(() => {
+      state.healthMetrics[0].value = (95 + Math.random() * 5).toFixed(0);
+      state.healthMetrics[1].value = (Math.random() * 2).toFixed(2);
+      state.healthMetrics[3].value = (60 + Math.random() * 20).toFixed(0);
+      renderHealthMetrics();
+    }, 5000);
+  </script>
+</body>
+</html>

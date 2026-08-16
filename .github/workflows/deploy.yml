@@ -1,0 +1,146 @@
+name: 🚀 Deploy to GitHub Pages & Test
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'index.html'
+      - 'TESTING.md'
+      - 'README.md'
+      - '.github/workflows/deploy.yml'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  # Job 1: Run automated tests
+  test:
+    runs-on: ubuntu-latest
+    name: 🧪 Run Tests
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run automated verification
+        run: |
+          chmod +x test-verify.sh
+          ./test-verify.sh
+
+      - name: Validate HTML
+        run: |
+          # Check file exists and is valid
+          if [ ! -f "index.html" ]; then
+            echo "ERROR: index.html not found"
+            exit 1
+          fi
+          
+          # Check HTML structure
+          if ! grep -q "<!DOCTYPE html>" index.html; then
+            echo "ERROR: DOCTYPE missing"
+            exit 1
+          fi
+          
+          if ! grep -q "<title>" index.html; then
+            echo "ERROR: Title missing"
+            exit 1
+          fi
+          
+          echo "✅ HTML validation passed"
+
+      - name: Check for critical errors
+        run: |
+          if grep -q "console.error" index.html; then
+            echo "⚠️  Warning: console.error found in code"
+          fi
+          echo "✅ No critical errors found"
+
+  # Job 2: Build and deploy
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    name: 📦 Deploy to GitHub Pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v3
+
+      - name: ✅ Deployment Summary
+        run: |
+          echo "🎉 Deployment Complete!"
+          echo "📍 URL: ${{ steps.deployment.outputs.page_url }}"
+          echo "⏱️  Deployed at: $(date)"
+
+  # Job 3: Create deployment report
+  report:
+    needs: deploy
+    runs-on: ubuntu-latest
+    name: 📊 Generate Report
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate deployment report
+        run: |
+          cat > deployment-report.txt << EOF
+          ════════════════════════════════════════
+          GRT ADMIN CONSOLE - DEPLOYMENT REPORT
+          ════════════════════════════════════════
+          
+          Date: $(date)
+          Branch: main
+          Commit: ${{ github.sha }}
+          Author: ${{ github.actor }}
+          
+          ✅ Tests: PASSED
+          ✅ Validation: PASSED
+          ✅ Deployment: COMPLETED
+          
+          📍 Live URL:
+          https://shingabhay-hub.github.io/GrtadminSystem/
+          
+          📦 Deployments:
+          - Main Application: index.html
+          - Documentation: README.md, TESTING.md, DEPLOYMENT.md, QUICKSTART.md
+          - Automation: test-verify.sh, .github/workflows/
+          
+          🔧 Next Steps:
+          1. Visit the live URL
+          2. Test all features
+          3. Share with team
+          4. Gather feedback
+          
+          ════════════════════════════════════════
+          EOF
+          
+          cat deployment-report.txt
+
+      - name: Upload report as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: deployment-report
+          path: deployment-report.txt

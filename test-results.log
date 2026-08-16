@@ -1,0 +1,8 @@
+[H[2J[3J[0;34m╔════════════════════════════════════════════╗[0m
+[0;34m║ GRT ADMIN CONSOLE - TEST VERIFICATION     ║[0m
+[0;34m║ Automated Test Suite                      ║[0m
+[0;34m╚════════════════════════════════════════════╝[0m
+
+[0;34m[1/5] FILE INTEGRITY CHECKS[0m
+---
+[0;32m✓ PASS[0m - index.html file exists
